@@ -44,6 +44,10 @@ git clone https://github.com/XxAlexplosivoxX/Deauth-Attack/
 cd Deauth-Attack
 sudo ./Deauth-Attack
 ```
+<p>
+  <img src=screenshot.png>
+</p>
+
 if you want to run it directly in a terminal you must copy the script to your bin directory
 ```
 sudo cp Deauth-attack /usr/bin
