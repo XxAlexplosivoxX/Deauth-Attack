@@ -38,7 +38,7 @@ if you use Archlinux install with:
 ```
 sudo pacman -S aircrack-ng macchanger toilet lolcat python3 python-prettytable
 ```
-and clone the repository
+then clone the repository
 ```
 git clone https://github.com/XxAlexplosivoxX/Deauth-Attack/
 cd Deauth-Attack
