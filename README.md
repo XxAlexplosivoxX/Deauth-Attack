@@ -3,7 +3,7 @@
 <p align=center>
   <img src=banner.png>
   <br>
-  a simple desauthentication attack...
+  a simple deauthentication attack...
 </p>
 
 >[!CAUTION]
