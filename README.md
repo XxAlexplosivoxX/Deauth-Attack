@@ -29,3 +29,12 @@ and with pip you must do
 ```
 pip install prettytable
 ```
+<br>
+
+> [!NOTE]
+> in Archlinux you must have the BlackArch repo
+
+if you use Archlinux install with:
+```
+sudo pacman -S aircrack-ng macchanger toilet lolcat python3 python-prettytable
+```
