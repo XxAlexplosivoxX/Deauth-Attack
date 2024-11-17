@@ -18,6 +18,8 @@ the script uses:
 -  lolcat
 -  python3
 
+<br>
+
 if you use ubuntu or zorin install with:
 ```
 sudo apt install aircrack-ng macchanger toilet lolcat python3-pip
