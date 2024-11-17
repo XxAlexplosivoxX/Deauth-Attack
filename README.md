@@ -44,7 +44,7 @@ git clone https://github.com/XxAlexplosivoxX/Deauth-Attack/
 cd Deauth-Attack
 sudo ./Deauth-Attack
 ```
-<p>
+<p align=center>
   <img src=screenshot.png>
 </p>
 
